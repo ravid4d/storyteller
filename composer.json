@@ -1,0 +1,24 @@
+{
+    "name": "amclab/storyteller",
+    "description": "Data history on remote service",
+    "authors": [
+        {
+            "name": "Federico Torrisi",
+            "email": "fedro.torrisi@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "extra": {
+        "laravel": {
+            "providers": [
+                "AmcLab\\Storyteller\\Providers\\StorytellerServiceProvider"
+            ]
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "AmcLab\\Storyteller\\": "src/"
+        }
+    }
+}
