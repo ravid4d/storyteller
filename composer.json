@@ -12,7 +12,8 @@
     "extra": {
         "laravel": {
             "providers": [
-                "AmcLab\\Storyteller\\Providers\\StorytellerServiceProvider"
+                "AmcLab\\Storyteller\\Providers\\StorytellerServiceProvider",
+                "AmcLab\\Storyteller\\Providers\\EventServiceProvider"
             ]
         }
     },
