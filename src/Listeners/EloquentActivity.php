@@ -173,7 +173,7 @@ class EloquentActivity implements ShouldQueue
 
         // se hanno il cast in array o json, effettua un controllo profondo dei contenuti
         if ($current === 'array' || $current === 'json') {
-            return $this->arrayVersionCompare((array) json_decode($old, true), (array) json_decode($new, true));
+            return arrayVersionCompare((array) json_decode($old, true), (array) json_decode($new, true));
         }
 
         // se sono datetime o date, trasformali in Carbon
@@ -193,97 +193,5 @@ class EloquentActivity implements ShouldQueue
 
     }
 
-    /**
-     * Effettua un confronto chiave per chiave di due versioni dello stesso array, restituendo
-     * tutte le differenze.
-     *
-     * @param array|null $old
-     * @param array|null $new
-     * @return array
-     */
-    protected function arrayVersionCompare(?array $old, ?array $new) : array {
-        $diffs = [];
-        $checked = [];
-
-        // confronta il vecchio con il nuovo
-        $current = $old;
-        $compared = $new;
-        if (!is_null($current)) {
-            foreach($current as $key => $currentValue) {
-                $exists = array_key_exists($key, $compared ?? []);
-                $comparedValue = $exists ? $compared[$key] : null;
-                if (is_array($currentValue) && count($currentValue)) {
-                    $diffs[] = [
-                        'subAttribute' => $key,
-                        'subEvent' => $exists ? 'updated' : 'deleted',
-                        'changes' => $exists ? $this->{__FUNCTION__}($currentValue, $comparedValue) : [
-                            'oldValue' => $currentValue,
-                            'newValue' => null,
-                        ]
-                    ];
-                }
-                else {
-                    if ($currentValue !== $comparedValue) {
-                        $diffs[] = [
-                            'subAttribute' => $key,
-                            'subEvent' => $exists ? 'updated' : 'deleted',
-                            'changes' => [
-                                'oldValue' => $currentValue,
-                                'newValue' => $comparedValue,
-                            ]
-                        ];
-                    }
-
-                    $checked[] = $key;
-                }
-            }
-        }
-
-        // confronta il nuovo con il vecchio
-        $current = $new;
-        $compared = $old;
-        if (!is_null($current)) {
-
-            foreach($current as $key => $currentValue) {
-                $exists = array_key_exists($key, $compared ?? []);
-                $comparedValue = $exists ? $compared[$key] : null;
-                if (is_array($currentValue) && count($currentValue)) {
-                    $diffs[] = [
-                        'subAttribute' => $key,
-                        'subEvent' => $exists ? 'updated' : 'created',
-                        'changes' => $this->{__FUNCTION__}($comparedValue, $currentValue)
-                    ];
-                }
-                else {
-
-                    // ...e verifica se esistono nuove proprietà che nel vecchio non esistevano
-                    if (!in_array($key, $checked)){
-                        $diffs[] = [
-                            'subAttribute' => $key,
-                            'subEvent' => 'created',
-                            'changes' => [
-                                'oldValue' => null,
-                                'newValue' => $currentValue,
-                            ]
-                        ];
-                    }
-                }
-            }
-        }
-
-        // elimina indici duplicati
-        $diffs = array_intersect_key($diffs, array_unique(array_map(function($v) {
-            return json_encode($v);
-        }, $diffs)));
-
-        // elimina update vuoti
-        $diffs = array_filter($diffs, function($v) {
-            return !($v['subEvent']==='updated' && (($v['changes'] ?? true)===[]) );
-        });
-
-        // restituisce il risultato
-        return array_values($diffs);
-
-    }
 
 }
