@@ -65,8 +65,8 @@ class MongoReceiver extends AbstractReceiver implements Receiver {
 
     public function getByModel(Model $model) {
         return $this->retrieveNewest([
-            'entity.name' => get_class($model),
-            'entity.key' => $model->{$model->getKeyName()},
+            'affectedEntity.name' => get_class($model),
+            'affectedEntity.key' => $model->{$model->getKeyName()},
         ]);
     }
 

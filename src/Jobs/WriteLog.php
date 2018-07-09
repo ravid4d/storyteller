@@ -3,6 +3,7 @@
 namespace AmcLab\Storyteller\Jobs;
 
 use AmcLab\Environment\Contracts\Environment;
+use AmcLab\Storyteller\Contracts\Document;
 use AmcLab\Storyteller\Contracts\Storyteller;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,12 +14,12 @@ class WriteLog implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable;
 
-    protected $data;
+    protected $exportedDocument;
     protected $environmentSpecs;
 
-    public function __construct(array $environmentSpecs, array $data) {
+    public function __construct(array $environmentSpecs, $exportedDocument) {
         // TODO: interfaccia event comuni che posso loggare!!!
-        $this->data = $data;
+        $this->exportedDocument = $exportedDocument;
         $this->environmentSpecs = $environmentSpecs;
     }
 
@@ -26,7 +27,7 @@ class WriteLog implements ShouldQueue
 
         try {
             $environment->unsetIdentity()->setWithSpecs($this->environmentSpecs);
-            $storyteller->push($this->data);
+            $storyteller->immediateLog($this->exportedDocument);
         }
         catch(\Exception $e) {
             $environment->unsetIdentity();

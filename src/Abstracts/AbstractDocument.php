@@ -2,9 +2,10 @@
 
 namespace AmcLab\Storyteller\Abstracts;
 
+use AmcLab\Storyteller\Contracts\Document;
 use Carbon\Carbon;
 
-abstract class AbstractDocument {
+abstract class AbstractDocument implements Document {
 
     protected $datetime;
 

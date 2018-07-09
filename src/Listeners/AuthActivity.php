@@ -46,7 +46,6 @@ class AuthActivity
 
         // richiedo l'inoltro asincrono del Document
         $document = new AuthDocument($eventDocument, $currentUser);
-        $job = new WriteLog($this->environment->getSpecs(), $document->export());
-        $this->dispatch($job->onQueue('storyteller'));
+        $this->storyteller->queuedLog($document);
     }
 }

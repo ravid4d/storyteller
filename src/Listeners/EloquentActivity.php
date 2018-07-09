@@ -66,9 +66,10 @@ class EloquentActivity implements ShouldQueue
             // della colonna updated_at, tranne se l'evento è una cancellazione che avviene su
             // un model che usa SoftDeletes: in tal caso, usa deleted_at come data di riferimento.
             if ($event->model->exists) {
-                $datetime = ($softDeletable && $event->name === 'deleted') ? $attributes[$deletedAtColumn] : $attributes[$updatedAtColumn];
-
-                // FIXME: perché non arriva già sotto forma di Carbon? (inizialmente funzionava)
+                // FIXME: supporto milli/micro-secondi nei timestamps (causa mancata implementazione in PDO)
+                // causa: due log molto vicini tra loro, potrebbero essere scritti con un ordine leggermente diverso
+                // https://stackoverflow.com/questions/31227069/laravel-timestamps-to-show-milliseconds
+                $datetime = ($softDeletable && $event->name === 'deleted') ? $event->model->$deletedAtColumn : $event->model->$updatedAtColumn;
                 $datetime = $datetime instanceof Carbon ? $datetime : new Carbon($datetime);
             }
 
@@ -118,8 +119,7 @@ class EloquentActivity implements ShouldQueue
 
             // richiedo l'inoltro asincrono del Document
             $document = new EloquentDocument($eventDocument, $currentEntity, $responsibility, $changes);
-            $job = new WriteLog($this->environment->getSpecs(), $document->at($datetime)->export());
-            $this->dispatch($job->onQueue($this->queue));
+            $this->storyteller->queuedLog($document->at($datetime));
 
             // se il model corrente ha delle relazioni con altri models, devo
             // loggare anche loro...
@@ -142,8 +142,7 @@ class EloquentActivity implements ShouldQueue
 
                 // richiedo l'inoltro asincrono del Document
                 $document = new RelatedChangeDocument('related@'.$event->name, $relatedEntity, $currentEntity, $responsibility);
-                $job = new WriteLog($this->environment->getSpecs(), $document->at($datetime)->export());
-                $this->dispatch($job->onQueue($this->queue));
+                $this->storyteller->queuedLog($document->at($datetime));
 
             }
 
