@@ -2,21 +2,24 @@
 
 namespace AmcLab\Storyteller\Receivers;
 
+use AmcLab\Environment\Contracts\Environment;
 use AmcLab\Storyteller\Abstracts\AbstractReceiver;
-use AmcLab\Storyteller\Contracts\Receivers\ReceiverInterface;
+use AmcLab\Storyteller\Contracts\Receiver;
+use AmcLab\Storyteller\Exceptions\ReceiverException;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Config\Repository as ConfigRepository;
 use Illuminate\Database\Eloquent\Model;
 use MongoDB\Client;
 use Traversable;
 
-class MongoReceiver extends AbstractReceiver implements ReceiverInterface {
+class MongoReceiver extends AbstractReceiver implements Receiver {
 
     protected $name = 'mongo';
     protected $client;
+    protected $environment;
 
-    public function __construct(ConfigRepository $configRepository) {
-        parent::__construct($configRepository);
+    public function __construct(ConfigRepository $configRepository, Environment $environment) {
+        parent::__construct($configRepository, $environment);
         $this->client = new Client($this->config['uri'], $this->config['uriOptions'], $this->config['driverOptions']);
     }
 
@@ -28,12 +31,17 @@ class MongoReceiver extends AbstractReceiver implements ReceiverInterface {
             if ($entry instanceof \Carbon\Carbon || $entry instanceof \DateTime) {
                 $entry = new \MongoDB\BSON\UTCDateTime($entry);
             }
+
             return $entry;
 
         }, $pushed);
     }
 
-    public function endpoint($destination) {
+    protected function endpoint() {
+        $destination = $this->environment->getIdentity()
+        ? 'storyteller_' . $this->environment->pathway('linkableResourceId')
+        : 'storyteller_anonymous';
+
         [$database, $collection] = ((array) $destination + [null, 'storyteller']);
         if (!$database || !$destination) {
             throw new ReceiverException('Invalid endpoint: "'.$database.'.'.$collection.'"');
@@ -41,32 +49,31 @@ class MongoReceiver extends AbstractReceiver implements ReceiverInterface {
         return $this->client->{$database}->{$collection};
     }
 
-    public function push($pushed, $destination) {
-        $a = $this->transform($pushed);
-        $this->endpoint($destination)->insertOne($a);
+    public function push($pushed) {
+        $this->endpoint()->insertOne($this->transform($pushed));
     }
 
-    public function retrieve($wheres = [], $orderBy = [], $destination) {
+    protected function retrieve($wheres = [], $orderBy = []) {
         $sort = ['sort' => $orderBy];
-        $result = $this->endpoint($destination)->find($wheres, $sort);
+        $result = $this->endpoint()->find($wheres, $sort);
         return $result;
     }
 
-    public function retrieveNewest($wheres = [], $destination) {
-        return $this->retrieve($wheres, ['datetime' => -1], $destination);
+    protected function retrieveNewest($wheres = []) {
+        return $this->retrieve($wheres, ['datetime' => -1]);
     }
 
-    public function getByModel(Model $model, $destination) {
+    public function getByModel(Model $model) {
         return $this->retrieveNewest([
             'entity.name' => get_class($model),
             'entity.key' => $model->{$model->getKeyName()},
-        ], $destination);
+        ]);
     }
 
-    public function getByAuth(?Authenticatable $user, $destination) {
+    public function getByAuth(?Authenticatable $user) {
         return $this->retrieveNewest([
             'responsibility.userId' => $user->{$user->getKeyName()},
-        ], $destination);
+        ]);
     }
 
     public function purge() {
