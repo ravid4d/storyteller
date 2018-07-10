@@ -10,6 +10,7 @@ use AmcLab\Storyteller\Documents\EntityDocument;
 use AmcLab\Storyteller\Documents\EventDocument;
 use AmcLab\Storyteller\Documents\HappenedDocument;
 use AmcLab\Storyteller\Documents\ResponsibilityDocument;
+use AmcLab\Storyteller\Exceptions\StorytellerException;
 use AmcLab\Storyteller\Jobs\Tell;
 use AmcLab\Storyteller\Jobs\WriteLog;
 use Carbon\Carbon;
@@ -25,6 +26,10 @@ class Storyteller implements Contract {
     protected $receiver;
     protected $environment;
     protected $user;
+
+    protected $ignored = [];
+    protected $deferrable = [];
+    protected $deferred = [];
 
     public function __construct(Receiver $receiver, Environment $environment, ?Authenticatable $user) {
         $this->receiver = $receiver;
@@ -78,9 +83,9 @@ class Storyteller implements Contract {
             // richiedo l'inoltro asincrono del Document
             $documents[] = (new HappenedDocument($eventRepresentation, $currentEntity, $responsibility))->at($datetime);
 
-            $this->queuedLog(...$documents);
-
         }
+
+        return $this->queuedLog(...$documents);
     }
 
     /**
@@ -90,28 +95,68 @@ class Storyteller implements Contract {
      * @return void
      */
     public function queuedLog(...$inputDocuments) {
+
         if (!$this->environment->getIdentity()) {
             throw new StorytellerException('Environment Identity must be set before logging', 1000);
         }
+
         foreach($inputDocuments as $inputDocument) {
-            $job = new WriteLog($this->environment->getSpecs(), $inputDocument instanceof Document ? $inputDocument->export() : $inputDocument);
-            $this->dispatch($job->onQueue('storyteller'));
+
+            // trasforma il documento in un array, se necessario
+            $document = $inputDocument instanceof Document ? $inputDocument->export() : $inputDocument;
+
+            // verifica che il document adesso sia un array
+            if (!is_array($document)) {
+                throw new StorytellerException('Document "'.json_encode($document).'" cannot be reduced to array', 1500);
+            }
+
+            // se il model in oggetto è ignorato, salta...
+            if (in_array($document['affectedEntity']['name'], $this->ignored)) {
+                continue;
+            }
+
+            $job = new WriteLog($this->environment->getSpecs(), $document);
+
+            // se il model corrente è deferrable, non fare il dispatch ma inseriscilo nella coda
+            if (in_array($document['affectedEntity']['name'], $this->deferrable)) {
+                $this->deferred[] = [$document['affectedEntity']['name'], $job];
+            }
+
+            // altrimenti fai il dispatch normalmente
+            else {
+                $this->dispatch($job->onQueue('storyteller'));
+            }
         }
+
+        return $this;
     }
 
     /**
      * Esegue immediatamente il log di un Document (o una sua esportazione in array)
      *
-     * @param Document|array ...$inputDocuments
+     * IMPORTANT: l'operazione viene lanciata a prescindere da $ignored, $deferrable e $deferred.
+     *
+     * @param Document|array $document
      * @return void
      */
-    public function immediateLog(...$inputDocuments) {
+    public function immediateLog($document) {
+
         if (!$this->environment->getIdentity()) {
             throw new StorytellerException('Environment Identity must be set before logging', 1000);
         }
-        foreach($inputDocuments as $inputDocument) {
-            $this->receiver->push($inputDocument instanceof Document ? $inputDocument->export() : $inputDocument);
+
+        // trasforma il documento in un array, se necessario
+        $document = $document instanceof Document ? $document->export() : $document;
+
+        // verifica che il document adesso sia un array
+        if (!is_array($document)) {
+            throw new StorytellerException('Document "'.json_encode($document).'" cannot be reduced to array', 1500);
         }
+
+        // mandalo al receiver per la scrittura immediata
+        $this->receiver->push($document);
+
+        return $this;
     }
 
     /**
@@ -153,5 +198,147 @@ class Storyteller implements Contract {
         // TODO:
     }
 
+    /**
+     * Aggiunge una classe Model all'elenco dei nomi di classi da ignorare
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function pushIgnored(string $modelClass) {
+        $this->ignored[] = $modelClass;
+        return $this;
+    }
+
+    /**
+     * Toglie la classe Model dall'elenco dei nomi di classi da ignorare
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function pullIgnored(string $modelClass) {
+        $this->ignored = array_filter($this->ignored, function($v) use ($modelClass) {
+            return $v !== $modelClass;
+        });
+        return $this;
+    }
+
+    /**
+     * Setta un elenco di nomi di classi da ignorare
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function setIgnored(array $modelClasses) {
+        $this->ignored = $modelClasses;
+        return $this;
+    }
+
+    /**
+     * Restituisce l'elenco di nomi di classi da ignorare
+     *
+     * @param string $modelClass
+     * @return array
+     */
+    public function getIgnored() {
+        return $this->ignored;
+    }
+
+    /**
+     * Indica di posticipare il dispatch per una classe Model
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function pushDeferrable(string $modelClass) {
+        $this->deferrable[] = $modelClass;
+        return $this;
+    }
+
+    /**
+     * Toglie il nome della classe Model dall'elenco di dispatch posticipati
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function pullDeferrable(string $modelClass) {
+        $this->deferrable = array_filter($this->deferrable, function($v) use ($modelClass) {
+            return $v !== $modelClass;
+        });
+        return $this;
+    }
+
+    /**
+     * Setta un elenco di nomi di classi con dispatch posticipato
+     *
+     * @param string $modelClass
+     * @return self
+     */
+    public function setDeferrable(array $modelClasses) {
+        $this->deferrable = $modelClasses;
+        return $this;
+    }
+
+    /**
+     * Restituisce l'elenco di classi Model con dispatch posticipato
+     *
+     * @param string $modelClass
+     * @return array
+     */
+    public function getDeferrable() {
+        return $this->deferrable;
+    }
+
+    /**
+     * Effettua il dispatch di tutti i job posticipati o di quelli relativi ad una specifica
+     * classe Model, eliminandoli dalla coda
+     *
+     * @param string|null $modelClass
+     * @return self
+     */
+    public function dispatchDeferred(?string $modelClass = null) {
+        return $this->deferredCallback($modelClass, function($className, $job, $deferredId) {
+            $this->dispatch($job->onQueue('storyteller'));
+            unset($this->deferred[$deferredId]);
+        });
+    }
+
+    /**
+     * Elimina tutti i job posticipati o quelli di una specifica classe Model
+     *
+     * @param string|null $modelClass
+     * @return self
+     */
+    public function flushDeferred(?string $modelClass = null) {
+        return $this->deferredCallback($modelClass, function($className, $job, $deferredId) {
+            unset($this->deferred[$deferredId]);
+        });
+    }
+
+    /**
+     * Scorre tutti i job posticipati o quelli di una specifica classe Model ed esegue una callback
+     *
+     * @param string|null $modelClass
+     * @param callable $callback
+     * @return self
+     */
+    public function deferredCallback(?string $modelClass = null, callable $callback) {
+        foreach ($this->deferred as $deferredId => $single) {
+            [$className, $job] = $single;
+            if (($modelClass && $modelClass === $className) || !$modelClass)  {
+                $callback($className, $job, $deferredId);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Rimuove tutti i job posticipati e tutti i model dall'elenco di quelli da posticipare
+     *
+     * @return self
+     */
+    public function resetAllDefers() {
+        return $this->setDeferrable([])->flushDeferred();
+    }
 
 }

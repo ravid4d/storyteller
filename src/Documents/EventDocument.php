@@ -16,9 +16,23 @@ class EventDocument extends AbstractDocument implements Document {
     }
 
     public function export() {
+        if (is_array($this->event)) {
+            [$name, $payload] = $this->event;
+        }
+
+        else if (is_object($this->event)) {
+            $name = class_basename($this->event);
+            $payload = json_decode(json_encode($this->event), true);
+        }
+
+        else {
+            $name = $this->event;
+            $payload = null;
+        }
+
         return [
-            'name' => is_object($this->event) ? class_basename($this->event) : $this->event,
-            'payload' => is_object($this->event) ? json_decode(json_encode($this->event), true) : null,
+            'name' => $name,
+            'payload' => $payload,
         ];
     }
 
