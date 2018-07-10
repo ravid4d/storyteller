@@ -16,32 +16,45 @@ Auditor e logger eventi per Laravel.
 
 - ...tutto lo stack AmcLab
 
-## Installazione
-
 ## A che serve?
 
-Questo package serve a tenere traccia, su un apposito store, di tutti gli eventi che coinvolgono le entità di database e gli utenti di applicazione.
+Questo package serve a tenere traccia, su un apposito store, di tutti gli eventi che coinvolgono le entità di database e gli utenti di applicazione, consentendo in maniera semplificata di:
 
-Sarà possibile tracciare:
-- Tutte le operazioni di creazione, modifica, cancellazione ed eventuale restore dei record, se si usa SoftDeletes;
-- Tutte le operazioni di accesso effettuate dagli utenti;
+- tracciare tutte le operazioni di creazione, modifica, cancellazione ed eventuale restore dei record (se si usa SoftDeletes) e di alcune operazioni legate all'autenticazione di Laravel;
+- segnalare l'evento appena verificatosi anche alle altre entità correlate al Model su cui si sono verificate;
+- ottenere l'elenco di tutte le modifiche effettuate da uno specifico operatore e di tutte le operazioni che hanno coinvolto uno specifico record.
 
-Questo permette di ottenere, mediante una semplice API:
-- L'elenco di tutte le modifiche effettuate da uno specifico operatore;
-- L'elenco dettagliato di tutte le operazioni che hanno coinvolto uno specifico record.
+## Come funziona?
 
-## Limitazioni
+Storyteller lega agli eventi intercettati il dispatch di uno o più job su un'apposita coda di messaggi, in maniera tale che vengano autonomamente eseguiti in background dall'application server.
 
-L'attuale versione di Storyteller non è autonomamente in grado di:
+In questo modo viene garantita l'immediatezza dell'operazione richiesta, senza dover attendere che il log venga effettivamente preso in carico e scritto.
 
-- loggare operazioni di massa invocate mediante il QueryBuilder
-- gestire l'eventuale rollback dei log nel caso di operazioni sotto transazione
-
-Alcuni possibili workaround per bypassare queste limitazioni sono indicati più avanti, nel relativo paragrafo.
+Questa operazione viene effettuata trasmettendo al job un oggetto (event) contenente una copia dell'istanza Model coinvolta e le impostazioni di connessione dell'Environment, tramite cui viene determinata la destinazione del log sul Receiver di riferimento.
 
 ## Documentazione
 
-Per abilitare il log degli eventi di Eloquent, è necessario che il Model usi il trait TellableTrait.
+### Prerequisiti
+
+Storyteller necessita che sull'applicazione chiamante sia settata un'Identity di Environment, affinché i job asincroni possano usare la stessa connessione usata da Eloquent per eseguire le operazioni richieste.
+
+Opzionalmente, è possibile indicare lo scope attuale, in modo tale da trasmettere anche il punto dell'applicazione in cui si è scatenato l'evento.
+
+```php
+app('environment')
+->setIdentity('nome')
+->setScope(new ExampleScope); // opzionale
+```
+
+I job saranno automaticamente impilati nella coda "storyteller", che può essere evasa in background con l'esecuzione del relativo processo:
+
+```bash
+php artisan queue:work --queue=storyteller
+```
+
+### Log operazioni per Model
+
+Per abilitare il log degli eventi di Eloquent, è necessario che il Model usi il trait TellableTrait:
 
 ```php
 namespace App\Models;
@@ -55,14 +68,73 @@ class ExampleModel
     ...
 ```
 
-Il log degli eventi generati dall'Autenticathor di Laravel avviene in maniera automatica, ma soltanto per gli eventi Login, Logout e PasswordReset e per i Model che implementano l'interfaccia ```Illuminate\Contracts\Auth\Authenticatable```.
+Una volta ereditato il trait, Storyteller sarà già attivo sul Model, tracciando automaticamente le operazioni legate agli eventi ```created```, ```updated```, ```deleted```, ```restored``` e ```forceDeleted```:
+
+```php
+ExampleModel::create(['nome'=>'Mario', 'cognome'=>'Rossi']);
+```
+
+Storyteller esclude per default l'intercettazione delle modifiche ai seguenti campi:
+
+- id
+- created_at
+- updated_at
+- deleted_at
+
+È possibile ignorare ulteriori campi indicandoli nella proprietà $excludeFromLog del Model:
+
+```php
+protected $excludeFromLog = [ 'campo_privato', 'altro_campo_privato' ];
+```
+
+#### Propagazione dell'evento ai record correlati
+
+In alcuni casi, potrebbe essere utile notificare ad altri record l'evento che si è appena verificato. Ad esempio, l'evento di creazione di una tessera andrebbe aggiunto al log dell'utente a cui questa è associata.
+
+Per fare questo, è necessario aggiungere la proprietà $bubbles al Model:
+
+```php
+protected $bubbles = [
+
+    // attributo del Model relazionato ad un altro Model
+    'customer_id' => [
+
+        // nome del Model correlato da avvisare
+        Customer::class,
+
+        // elenco degli eventi da notificare al Model correlato
+        ['created', 'deleted']
+
+    ],
+
+];
+```
+
+### Log operazioni per User (Authenticatable)
+
+Il log degli eventi generati dai Model che implementano l'interfaccia ```Illuminate\Contracts\Auth\Authenticatable``` avviene in maniera automatica, ma soltanto per gli eventi ```Login```, ```Logout``` e ```PasswordReset```.
+
+### Log di altre operazioni
+
+Potrebbe essere necessario, in qualche occasione, legare un evento personalizzato e tracciare questo sul log operazioni del Model. Ad esempio: viene richiesta la stampa di un elenco di nominativi e va tracciato l'evento ("printed") comprensivo di data e ora corrente.
+
+```php
+$lista = Anagrafica::get();
+stampa($lista);
+
+function stampa($lista) {
+    ...
+    ...
+    app('storyteller')->happened($evento, ...$lista);
+}
+```
+
+***Nota: il log di altre operazioni non prevede che sia automaticamente propagato agli eventuali Model collegati!***
 
 
 
 
-Il log avviene determinando qual è il database di riferimento mediante Environment e scrivendo nell'opportuno Receiver di riferimento.
 
-Il Receiver può puntare a qualsiasi "collettore" di dati che implementi l'interfaccia Contracts\Receiver.
 
 ### Esempio
 
@@ -76,11 +148,12 @@ Il Receiver può puntare a qualsiasi "collettore" di dati che implementi l'inter
 
 
 
+## Limitazioni e possibili workaround
 
+L'attuale versione di Storyteller non è autonomamente in grado di:
 
-
-
-## Workaround alle limitazioni
+- loggare operazioni di massa invocate mediante il QueryBuilder
+- gestire l'eventuale rollback dei log nel caso di operazioni sotto transazione
 
 ### Log delle operazioni di massa
 
@@ -92,7 +165,7 @@ Prendendo come esempio la seguente richiesta:
 ExampleModel::where([['id', '<', 300]])->update(['something' => str_random(4)]);
 ```
 
-L'operazione di update in oggetto non verrebbe tracciata dallo storyteller perché il metodo update() viene eseguito non su un'istanza di Model, bensì su un'istanza di QueryBuilder e per questo motivo non è possibile intercettare le singole operazioni e/o i singoli record coinvolti.
+L'operazione di update in oggetto non verrebbe tracciata da Storyteller perché il metodo update() viene eseguito non su un'istanza di Model, bensì su un'istanza di QueryBuilder e per questo motivo non è possibile intercettare le singole operazioni e/o i singoli record coinvolti.
 
 Per ovviare a questo limite esistono due workaround, di seguito illustrati.
 
@@ -112,7 +185,9 @@ foreach($utenti->cursor() as $utente) {
 
 #### Lanciare un equivalente evento personalizzato
 
-Se si ha a disposizione la lista degli id coinvolti dall'operazione di massa ed è noto uno specifico payload comune a tutti i record, si potrebbe trasmettere un evento specifico (***attenzione, vedi nota***):
+*Nota: al momento non è ancora stato formalizzato alcuno standard per gli eventi di massa, siano essi update, delete o insert, che pertanto andrebbe discusso e valutato. Pertanto, questa opzione andrebbe __evitata__ fin quando possibile e fintanto che non si renda __strettamente necessario__!*
+
+Se si ha a disposizione la lista degli id coinvolti dall'operazione di massa ed è noto uno specifico payload comune a tutti i record, si potrebbe trasmettere un evento specifico:
 
 ```php
 $newValues = ['something' => str_random(4)];
@@ -126,11 +201,9 @@ foreach($elencoId as $id) {
 app('storyteller')->happened(['massUpdated', $newValues], ...$elencoModels);
 ```
 
-*Nota: al momento non è ancora stato formalizzato alcuno standard per gli eventi di massa, siano essi update, delete o insert, che pertanto andrebbe discusso e valutato. Pertanto, attualmente andrebbe __evitata__ fin quando possibile e fintanto che non si renda __strettamente necessario__!*
-
 ### Comportamento sotto transazione
 
-Le operazioni di log sui dati vengono sempre trasmesse allo Storyteller in maniera indipendente dall'eventuale transazione: se successivamente al log venisse richiesto il rollback di una o più operazioni, i log associati ai models che hanno effettuato operazioni, sebbene queste siano state annullate, non sarebbero cancellati.
+Le operazioni di log sui dati vengono sempre intercettate in maniera indipendente dall'eventuale transazione: se successivamente al log venisse richiesto il rollback di una o più operazioni, i log associati ai models che hanno effettuato operazioni, sebbene queste siano state annullate, non sarebbero cancellati.
 
 Per ovviare a questo inconveniente, è possibile "posticipare" temporaneamente il log delle operazioni di uno o più Models finché non ne viene esplicitamente invocata la scrittura (ad esempio a seguito del commit).
 
@@ -138,8 +211,6 @@ Per ovviare a questo inconveniente, è possibile "posticipare" temporaneamente i
 // indico di posticipare il log per questo Model
 app('storyteller')->pushDeferrable(ExampleModel::class);
 ```
-
-Dopodiché va inserito un comando per l'invocazione del log a seguito del commit:
 
 ```php
 \DB::transaction(function() {

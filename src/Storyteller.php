@@ -11,7 +11,6 @@ use AmcLab\Storyteller\Documents\EventDocument;
 use AmcLab\Storyteller\Documents\HappenedDocument;
 use AmcLab\Storyteller\Documents\ResponsibilityDocument;
 use AmcLab\Storyteller\Exceptions\StorytellerException;
-use AmcLab\Storyteller\Jobs\Tell;
 use AmcLab\Storyteller\Jobs\WriteLog;
 use Carbon\Carbon;
 use Illuminate\Contracts\Auth\Authenticatable;
