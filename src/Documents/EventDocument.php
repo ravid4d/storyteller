@@ -10,6 +10,9 @@ class EventDocument extends AbstractDocument implements Document {
 
     protected $event;
 
+    // proprietà da escludere perché non più utili...
+    protected $excluded = ['model', 'environmentSpecs', 'user'];
+
     public function __construct($event) {
         parent::__construct();
         $this->event = $event;
@@ -23,6 +26,13 @@ class EventDocument extends AbstractDocument implements Document {
         else if (is_object($this->event)) {
             $name = class_basename($this->event);
             $payload = json_decode(json_encode($this->event), true);
+
+            // escludo le proprietà presenti in $this->excluded
+            foreach (array_keys($payload) as $key) {
+                if (in_array($key, $this->excluded)) {
+                    unset($payload[$key]);
+                }
+            }
         }
 
         else {
