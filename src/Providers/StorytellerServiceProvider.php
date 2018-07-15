@@ -13,7 +13,7 @@ class StorytellerServiceProvider extends ServiceProvider
     {
 
         $this->publishes(array(
-            __DIR__.'../../config/storyteller.php' => config_path('storyteller.php'),
+            __DIR__.'/../../config/storyteller.php' => config_path('storyteller.php'),
         ), 'config');
 
     }
