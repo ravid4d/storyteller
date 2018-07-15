@@ -37,6 +37,20 @@ class Storyteller implements Contract {
     }
 
     /**
+     * PATCH: Permette di settare un utente dal vecchio sistema di autenticazione
+     * eTesseramenti come Authenticatable attuale.
+     *
+     * !! IMPORTANT: È SOLTANTO TEMPORANEO!!!!!
+     *
+     * @param User $user
+     * @return self
+     */
+    public function setAuthFromETUser(User $user) {
+        $this->user = $user;
+        return $this;
+    }
+
+    /**
      * Richiede il log asincrono di un evento arbitrario che coinvolge uno o più entità, passate
      * come arguments (a numero variabile) del metodo.
      * Ciascuna entità può essere un'istanza di Model o una sua rappresentazione sotto forma di
