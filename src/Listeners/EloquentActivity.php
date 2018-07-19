@@ -172,7 +172,7 @@ class EloquentActivity implements ShouldQueue
 
         // se hanno il cast in array o json, effettua un controllo profondo dei contenuti
         if ($current === 'array' || $current === 'json') {
-            return arrayVersionCompare((array) json_decode($old, true), (array) json_decode($new, true));
+            return array_versions_compare((array) json_decode($old, true), (array) json_decode($new, true));
         }
 
         // se sono datetime o date, trasformali in Carbon
