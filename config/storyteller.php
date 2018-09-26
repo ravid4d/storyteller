@@ -15,4 +15,6 @@ return [
 
     'receiver' => 'mongo',
 
+    'queue' => 'storyteller',
+
 ];

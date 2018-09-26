@@ -137,7 +137,7 @@ class Storyteller implements Contract {
 
             // altrimenti fai il dispatch normalmente
             else {
-                $this->dispatch($job->onQueue('storyteller'));
+                $this->dispatch($job->onQueue(config('storyteller.queue')));
             }
         }
 
@@ -310,7 +310,7 @@ class Storyteller implements Contract {
      */
     public function dispatchDeferred(?string $modelClass = null) {
         return $this->deferredCallback($modelClass, function($className, $job, $deferredId) {
-            $this->dispatch($job->onQueue('storyteller'));
+            $this->dispatch($job->onQueue(config('storyteller.queue')));
             unset($this->deferred[$deferredId]);
         });
     }
