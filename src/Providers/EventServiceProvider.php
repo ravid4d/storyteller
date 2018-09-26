@@ -14,10 +14,10 @@ class EventServiceProvider extends ServiceProvider
     protected $listen = [
         Happening::class => [EloquentActivity::class],
 
-        // \Illuminate\Auth\Events\Registered::class => [AuthActivity::class],
+        \Illuminate\Auth\Events\Registered::class => [AuthActivity::class],
         // \Illuminate\Auth\Events\Attempting::class => [AuthActivity::class],
-        // \Illuminate\Auth\Events\Authenticated::class => [AuthActivity::class],
-        \Illuminate\Auth\Events\Login::class => [AuthActivity::class],
+        \Illuminate\Auth\Events\Authenticated::class => [AuthActivity::class],
+        // \Illuminate\Auth\Events\Login::class => [AuthActivity::class],
         // \Illuminate\Auth\Events\Failed::class => [AuthActivity::class],
         \Illuminate\Auth\Events\Logout::class => [AuthActivity::class],
         // \Illuminate\Auth\Events\Lockout::class => [AuthActivity::class],
