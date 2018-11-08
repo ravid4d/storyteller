@@ -65,8 +65,10 @@ Selezionando il provider ```AmcLab\Storyteller\Providers\StorytellerServiceProvi
 È possibile personalizzare:
 
 - Il Receiver usare per il log (al momento supporta soltanto ```mongo```)
-- La connessione da usare (altrimenti settabile via file .env aggiungendo il valore alla chiave ```STORYTELLER_CONNECTION```)
+- La connessione da usare (altrimenti settabile via file .env aggiungendo il valore alla chiave ```STORYTELLER_CONNECTION```).
 - Il nome della coda di processi nella connessione (che, se non strettamente necessario, non andrebbe cambiato)
+
+Nota bene: se fosse necessario usare il driver "null" nell'env, il valore da indicare deve essere scritto come ``` `null` ```, comprensivo dei backticks ``.
 
 ### Log operazioni per Model
 

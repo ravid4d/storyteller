@@ -51,8 +51,14 @@ class Storyteller implements Contract {
     }
 
     public function tell($job) {
+        $connection = config('storyteller.connection');
+
+        if ($connection === '`null`') {
+            $connection = 'null';
+        }
+
         $this->dispatch(
-            $job->onConnection(config('storyteller.connection'))
+            $job->onConnection($connection)
             ->onQueue(config('storyteller.queue'))
         );
     }
