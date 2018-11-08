@@ -52,6 +52,22 @@ I job saranno automaticamente impilati nella coda "storyteller", che può essere
 php artisan queue:work --queue=storyteller
 ```
 
+### Configurazione
+
+Richiedere la pubblicazione degli assets via artisan:
+
+```bash
+$ php artisan vendor:publish
+```
+
+Selezionando il provider ```AmcLab\Storyteller\Providers\StorytellerServiceProvider```, verrà pubblicato su ```/config``` il file di configurazione ```storyteller.php```.
+
+È possibile personalizzare:
+
+- Il Receiver usare per il log (al momento supporta soltanto ```mongo```)
+- La connessione da usare (altrimenti settabile via file .env aggiungendo il valore alla chiave ```STORYTELLER_CONNECTION```)
+- Il nome della coda di processi nella connessione (che, se non strettamente necessario, non andrebbe cambiato)
+
 ### Log operazioni per Model
 
 Per abilitare il log degli eventi di Eloquent, è necessario che il Model usi il trait TellableTrait:

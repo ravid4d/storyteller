@@ -50,6 +50,13 @@ class Storyteller implements Contract {
         return $this;
     }
 
+    public function tell($job) {
+        $this->dispatch(
+            $job->onConnection(config('storyteller.connection'))
+            ->onQueue(config('storyteller.queue'))
+        );
+    }
+
     /**
      * Richiede il log asincrono di un evento arbitrario che coinvolge uno o più entità, passate
      * come arguments (a numero variabile) del metodo.
@@ -137,7 +144,7 @@ class Storyteller implements Contract {
 
             // altrimenti fai il dispatch normalmente
             else {
-                $this->dispatch($job->onQueue(config('storyteller.queue')));
+                $this->tell($job);
             }
         }
 
@@ -310,7 +317,7 @@ class Storyteller implements Contract {
      */
     public function dispatchDeferred(?string $modelClass = null) {
         return $this->deferredCallback($modelClass, function($className, $job, $deferredId) {
-            $this->dispatch($job->onQueue(config('storyteller.queue')));
+            $this->tell($job);
             unset($this->deferred[$deferredId]);
         });
     }
