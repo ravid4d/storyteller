@@ -70,6 +70,8 @@ Selezionando il provider ```AmcLab\Storyteller\Providers\StorytellerServiceProvi
 
 Nota bene: se fosse necessario usare il driver "null" nell'env, il valore da indicare deve essere scritto come ``` `null` ```, comprensivo dei backticks ``.
 
+È inoltre possibile disabilitare temporaneamente lo Storyteller inserendo il valore ```true``` alla chiave ```STORYTELLER_DISABLE``` sul file .env dell'applicazione.
+
 ### Log operazioni per Model
 
 Per abilitare il log degli eventi di Eloquent, è necessario che il Model usi il trait TellableTrait:
