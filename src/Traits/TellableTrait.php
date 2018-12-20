@@ -11,7 +11,7 @@ use Illuminate\Contracts\Auth\Authenticatable;
 trait TellableTrait {
 
     public static function bootTellableTrait() {
-        if (env('STORYTELLER_DISABLE', false)) {
+        if (config('storyteller.disabled')) {
             return;
         }
         static::observe(StorytellerObserver::class);

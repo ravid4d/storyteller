@@ -18,4 +18,6 @@ return [
     'connection' => env('STORYTELLER_CONNECTION', config('queue.default')),
     'queue' => 'storyteller',
 
+    'disabled' => env('STORYTELLER_DISABLE', false),
+
 ];
