@@ -122,6 +122,11 @@ class Storyteller implements Contract {
      */
     public function queuedLog(...$inputDocuments) {
 
+        // se storyteller è disabilitato, esci
+        if (config('storyteller.disabled')) {
+            return $this;
+        }
+
         if (!$this->environment->getIdentity()) {
             throw new StorytellerException('Environment Identity must be set before logging', 1000);
         }
@@ -166,6 +171,11 @@ class Storyteller implements Contract {
      * @return void
      */
     public function immediateLog($document) {
+
+        // se storyteller è disabilitato, esci
+        if (config('storyteller.disabled')) {
+            return $this;
+        }
 
         if (!$this->environment->getIdentity()) {
             throw new StorytellerException('Environment Identity must be set before logging', 1000);
