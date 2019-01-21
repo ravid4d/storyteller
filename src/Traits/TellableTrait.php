@@ -11,6 +11,10 @@ use Illuminate\Contracts\Auth\Authenticatable;
 trait TellableTrait {
 
     public static function bootTellableTrait() {
+        // PATCH: risolve (temporaneamente) problema di ekipe (anagrafiche con 30+ attività che fanno crashare beanstalkd)
+        if (config('storyteller.disabled')) {
+            return;
+        }
         static::observe(StorytellerObserver::class);
     }
 
