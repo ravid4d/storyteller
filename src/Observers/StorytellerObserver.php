@@ -21,7 +21,7 @@ class StorytellerObserver
     }
 
     protected function invoke(string $event, Model $model) {
-        $this->events->fire(new Happening(
+        $this->events->dispatch(new Happening(
             $model,
             $event,
             $this->environment->getSpecs(),
