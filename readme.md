@@ -182,7 +182,7 @@ Le operazioni di update e cancellazione di massa, ossia quelle che vengono invoc
 Prendendo come esempio la seguente richiesta:
 
 ```php
-ExampleModel::where([['id', '<', 300]])->update(['something' => str_random(4)]);
+ExampleModel::where([['id', '<', 300]])->update(['something' => Str::random(4)]);
 ```
 
 L'operazione di update in oggetto non verrebbe tracciata da Storyteller perché il metodo update() viene eseguito non su un'istanza di Model, bensì su un'istanza di QueryBuilder e per questo motivo non è possibile intercettare le singole operazioni e/o i singoli record coinvolti.
@@ -197,7 +197,7 @@ Usando il metodo get() o - meglio ancora - il metodo cursor() del QueryBuilder, 
 $utenti = ExampleModel::where([['id', '<', 300]]);
 
 foreach($utenti->cursor() as $utente) {
-    $utente->update(['something' => str_random(4)]);
+    $utente->update(['something' => Str::random(4)]);
 }
 ```
 
@@ -210,7 +210,7 @@ foreach($utenti->cursor() as $utente) {
 Se si ha a disposizione la lista degli id coinvolti dall'operazione di massa ed è noto uno specifico payload comune a tutti i record, si potrebbe trasmettere un evento specifico:
 
 ```php
-$newValues = ['something' => str_random(4)];
+$newValues = ['something' => Str::random(4)];
 
 $utenti = ExampleModel::whereIn('id', $elencoId)->update($newValues);
 
